@@ -10,6 +10,8 @@ Use this package to easily convert various time formats to milliseconds.
 
 ## Examples
 
+### Convert Strings to Milliseconds
+
 ```ts
 ms('2 days')  // 172800000
 ms('1d')      // 86400000
@@ -25,7 +27,7 @@ ms('-1h')     // -3600000
 ms('-200')    // -200
 ```
 
-### Convert from Milliseconds
+### Convert Milliseconds to Strings
 
 ```ts
 ms(60000)             // "1m"
@@ -34,7 +36,7 @@ ms(-3 * 60000)        // "-3m"
 ms(ms('10 hours'))    // "10h"
 ```
 
-### Time Format Written-Out
+### Convert Milliseconds to Strings (Long Format)
 
 ```ts
 ms(60000, { long: true })             // "1 minute"
