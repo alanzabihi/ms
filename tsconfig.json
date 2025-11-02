@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
     "moduleResolution": "bundler",
-    "module": "esnext",
-    "target": "es2022",
+    "module": "ES2022",
+    "target": "ES2022",
     "esModuleInterop": true,
     "outDir": "dist",
     "declaration": true,
+    "declarationMap": true,
 
     "isolatedDeclarations": true,
     "isolatedModules": true,
@@ -14,5 +15,6 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/*.ts"]
+  "include": ["src/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }
