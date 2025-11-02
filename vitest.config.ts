@@ -2,8 +2,13 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['**/src/**/*.test.ts'],
     coverage: {
+      clean: true,
+      exclude: [
+        'lint-staged.config.ts',
+        'tsdown.config.ts',
+        'vitest.config.ts',
+      ],
       enabled: true,
       provider: 'v8',
       reporter: ['text', 'lcov'],

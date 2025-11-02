@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parse } from './index';
+import { describe, expect, it, test } from 'vitest';
+import { d, getMs, h, m, mo, parse, s, w, y } from './index';
 
 describe('parse(string)', () => {
   it('should not throw an error', () => {
@@ -204,5 +204,57 @@ describe('parse(invalid inputs)', () => {
       // @ts-expect-error - We expect this to throw.
       parse(-Infinity);
     }).toThrow();
+  });
+});
+
+describe('getMs(valid inputs)', () => {
+  test.for([
+    ['years', 2, 2 * y],
+    ['year', 1.5, 1.5 * y],
+    ['yrs', 3, 3 * y],
+    ['yr', 0.5, 0.5 * y],
+    ['y', 1, y],
+    ['months', 4, 4 * mo],
+    ['month', 2.5, 2.5 * mo],
+    ['mo', 1, mo],
+    ['weeks', 3, 3 * w],
+    ['week', 1.5, 1.5 * w],
+    ['w', 1, w],
+    ['days', 10, 10 * d],
+    ['day', 0.5, 0.5 * d],
+    ['d', 1, d],
+    ['hours', 5, 5 * h],
+    ['hour', 2.5, 2.5 * h],
+    ['hrs', 1, h],
+    ['hr', 0.5, 0.5 * h],
+    ['h', 1, h],
+    ['minutes', 30, 30 * m],
+    ['minute', 15.5, 15.5 * m],
+    ['mins', 1, m],
+    ['min', 0.5, 0.5 * m],
+    ['m', 1, m],
+    ['seconds', 45, 45 * s],
+    ['second', 20.5, 20.5 * s],
+    ['secs', 1, s],
+    ['sec', 0.5, 0.5 * s],
+    ['s', 1, s],
+    ['milliseconds', 900, 900],
+    ['millisecond', 450.5, 450.5],
+    ['msecs', 1, 1],
+    ['msec', 0.5, 0.5],
+    ['ms', 1, 1],
+  ] as const)('should return correct ms for %s %s', ([unit, n, expected]) => {
+    expect(getMs(`${n} ${unit}`, unit, n)).toBe(expected);
+  });
+});
+
+describe('getMs(invalid inputs)', () => {
+  it('should throw an error for unknown unit', () => {
+    expect(() => {
+      // @ts-expect-error - We expect this to throw.
+      getMs('5 elephants', 'elephants', 5);
+    }).toThrow(
+      'Unknown unit "elephants" provided to ms.parse(). value="5 elephants"',
+    );
   });
 });

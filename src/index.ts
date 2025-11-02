@@ -1,10 +1,10 @@
-const s = 1000;
-const m = s * 60;
-const h = m * 60;
-const d = h * 24;
-const w = d * 7;
-const y = d * 365.25;
-const mo = y / 12;
+export const s = 1000;
+export const m: number = s * 60;
+export const h: number = m * 60;
+export const d: number = h * 24;
+export const w: number = d * 7;
+export const y: number = d * 365.25;
+export const mo: number = y / 12;
 
 type Years = 'years' | 'year' | 'yrs' | 'yr' | 'y';
 type Months = 'months' | 'month' | 'mo';
@@ -63,36 +63,11 @@ export function ms(
   );
 }
 
-/**
- * Parse the given string and return milliseconds.
- *
- * @param str - A string to parse to milliseconds
- * @returns The parsed value in milliseconds, or `NaN` if the string can't be
- * parsed
- */
-export function parse(str: string): number {
-  if (typeof str !== 'string' || str.length === 0 || str.length > 100) {
-    throw new Error(
-      `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(
-        str,
-      )}`,
-    );
-  }
-  const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
-    );
-
-  if (!match?.groups) {
-    return NaN;
-  }
-
-  const { value, unit = 'ms' } = match.groups;
-
-  const n = parseFloat(value);
-
-  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
-
+export function getMs(
+  str: string,
+  matchUnit: Lowercase<Unit>,
+  n: number,
+): number {
   switch (matchUnit) {
     case 'years':
     case 'year':
@@ -136,14 +111,47 @@ export function parse(str: string): number {
     case 'msec':
     case 'ms':
       return n;
-    default:
+    default: {
       matchUnit satisfies never;
+      const value = JSON.stringify(str);
       throw new Error(
-        `Unknown unit "${matchUnit}" provided to ms.parse(). value=${JSON.stringify(
-          str,
-        )}`,
+        `Unknown unit "${matchUnit}" provided to ms.parse(). value=${value}`,
       );
+    }
   }
+}
+
+/**
+ * Parse the given string and return milliseconds.
+ *
+ * @param str - A string to parse to milliseconds
+ * @returns The parsed value in milliseconds, or `NaN` if the string can't be
+ * parsed
+ */
+export function parse(str: string): number {
+  if (typeof str !== 'string' || str.length === 0 || str.length > 100) {
+    throw new Error(
+      `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(
+        str,
+      )}`,
+    );
+  }
+  const match =
+    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
+      str,
+    );
+
+  if (!match?.groups) {
+    return NaN;
+  }
+
+  const { value, unit = 'ms' } = match.groups;
+
+  const n = parseFloat(value);
+
+  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
+
+  return getMs(str, matchUnit, n);
 }
 
 /**
