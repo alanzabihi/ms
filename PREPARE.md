@@ -54,8 +54,8 @@ node bench/harness.mjs
 
 Output must contain:
 ```
-parse_fingerprint=8373d808b6e9db83
-format_fingerprint=ec93a4c93933ae4d
+parse_fp	parse:3de2a72832c8310a
+format_fp	format:3557e89b64e4b470
 ```
 
 Any deviation means the optimization changed observable behavior.

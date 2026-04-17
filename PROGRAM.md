@@ -31,13 +31,13 @@ indicate accidental damage.)
 
 ## Correctness invariants
 
-- **Fingerprints**: `parse_fingerprint` and `format_fingerprint` from the
-  harness must match baseline values exactly:
-  - `parse_fingerprint=8373d808b6e9db83`
-  - `format_fingerprint=ec93a4c93933ae4d`
-- Fingerprints are SHA-256 digests of 10,000 output values. Any behavioral
-  divergence (different NaN, different rounding, different string) will change
-  the fingerprint and fail the candidate.
+- **Fingerprints**: `parse_fp` and `format_fp` from the harness must match
+  baseline values exactly:
+  - `parse_fp=parse:3de2a72832c8310a`
+  - `format_fp=format:3557e89b64e4b470`
+- Fingerprints are SHA-256 digests of all distinct output values. Any
+  behavioral divergence (different NaN, different rounding, different string)
+  will change the fingerprint and fail the candidate.
 
 ## Editable surface
 
@@ -48,7 +48,7 @@ types, build — is off-limits.
 
 A candidate is rejected if **any** of:
 
-1. `parse_fingerprint` or `format_fingerprint` changes
+1. `parse_fp` or `format_fp` changes
 2. `format_ms` regresses > 10%
 3. `pnpm run lint` fails
 4. `pnpm run typecheck` fails
@@ -91,10 +91,8 @@ believe will move the metric, as long as invariants hold.
 `bench/harness.mjs` — runs with plain `node`, no dependencies. Prints:
 
 ```
-parse_fingerprint=<hex>
-format_fingerprint=<hex>
-parse_ms=<float>
-format_ms=<float>
-parse_ns_per_call=<float>
-format_ns_per_call=<float>
+parse_ms	<float>
+format_ms	<float>
+parse_fp	parse:<hex>
+format_fp	format:<hex>
 ```

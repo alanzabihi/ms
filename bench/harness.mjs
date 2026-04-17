@@ -1,8 +1,7 @@
-import { parse, format } from '../dist/index.js';
 import { createHash } from 'node:crypto';
+import { parse, format } from '../dist/index.js';
 
-const PARSE_ITERS = 2_000_000;
-const FORMAT_ITERS = 2_000_000;
+const ITERS = 2_000_000;
 const WARMUP = 200_000;
 const ROUNDS = 5;
 
@@ -26,54 +25,59 @@ const longOpt = { long: true };
 const pLen = parseInputs.length;
 const fLen = formatInputs.length;
 
-function fingerprint(label, fn, inputs, len) {
+function fp(label, values) {
   const h = createHash('sha256');
-  for (let i = 0; i < len; i++) {
-    h.update(String(fn(inputs[i % inputs.length])));
-  }
-  const digest = h.digest('hex').slice(0, 16);
-  console.log(`${label}_fingerprint=${digest}`);
-  return digest;
+  for (const v of values) h.update(String(v));
+  return `${label}:${h.digest('hex').slice(0, 16)}`;
+}
+
+function median(times) {
+  times.sort((a, b) => a - b);
+  return times[Math.floor(times.length / 2)];
 }
 
 function benchParse() {
+  const results = [];
+  for (let i = 0; i < pLen; i++) results.push(parse(parseInputs[i]));
+
   for (let i = 0; i < WARMUP; i++) parse(parseInputs[i % pLen]);
 
   const times = [];
   for (let r = 0; r < ROUNDS; r++) {
-    const start = performance.now();
-    for (let i = 0; i < PARSE_ITERS; i++) parse(parseInputs[i % pLen]);
-    times.push(performance.now() - start);
+    const t0 = performance.now();
+    for (let i = 0; i < ITERS; i++) parse(parseInputs[i % pLen]);
+    times.push(performance.now() - t0);
   }
-  times.sort((a, b) => a - b);
-  return times[Math.floor(ROUNDS / 2)];
+
+  return { ms: median(times), fp: fp('parse', results) };
 }
 
 function benchFormat() {
+  const results = [];
+  for (let i = 0; i < fLen; i++) {
+    results.push(format(formatInputs[i]));
+    results.push(format(formatInputs[i], longOpt));
+  }
+
   for (let i = 0; i < WARMUP; i++) format(formatInputs[i % fLen]);
 
   const times = [];
   for (let r = 0; r < ROUNDS; r++) {
-    const start = performance.now();
-    for (let i = 0; i < FORMAT_ITERS; i++) {
+    const t0 = performance.now();
+    for (let i = 0; i < ITERS; i++) {
       if (i & 1) format(formatInputs[(i >> 1) % fLen], longOpt);
       else format(formatInputs[(i >> 1) % fLen]);
     }
-    times.push(performance.now() - start);
+    times.push(performance.now() - t0);
   }
-  times.sort((a, b) => a - b);
-  return times[Math.floor(ROUNDS / 2)];
+
+  return { ms: median(times), fp: fp('format', results) };
 }
 
-const parseFP = fingerprint('parse', parse, parseInputs, 10000);
-const formatFP = fingerprint('format',
-  (v) => format(v) + '|' + format(v, longOpt),
-  formatInputs, 10000);
+const p = benchParse();
+const f = benchFormat();
 
-const parseMs = benchParse();
-const formatMs = benchFormat();
-
-console.log(`parse_ms=${parseMs.toFixed(2)}`);
-console.log(`format_ms=${formatMs.toFixed(2)}`);
-console.log(`parse_ns_per_call=${(parseMs * 1e6 / PARSE_ITERS).toFixed(1)}`);
-console.log(`format_ns_per_call=${(formatMs * 1e6 / FORMAT_ITERS).toFixed(1)}`);
+console.log(`parse_ms\t${p.ms.toFixed(2)}`);
+console.log(`format_ms\t${f.ms.toFixed(2)}`);
+console.log(`parse_fp\t${p.fp}`);
+console.log(`format_fp\t${f.fp}`);
