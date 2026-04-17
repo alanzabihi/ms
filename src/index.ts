@@ -92,57 +92,54 @@ export function parse(str: string): number {
 
   const n = parseFloat(value);
 
-  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
+  // CharCode-based dispatch: regex above guarantees `unit` is one of the valid
+  // unit strings (case-insensitively), so we only need to branch on the first
+  // (and occasionally second/third) character. Using `c | 0x20` lowercases
+  // ASCII letters without allocating a new string.
+  const c0 = unit.charCodeAt(0) | 0x20;
 
-  /* istanbul ignore next - istanbul doesn't understand, but thankfully the TypeScript the exhaustiveness check in the default case keeps us type safe here */
-  switch (matchUnit) {
-    case 'years':
-    case 'year':
-    case 'yrs':
-    case 'yr':
-    case 'y':
-      return n * y;
-    case 'months':
-    case 'month':
-    case 'mo':
-      return n * mo;
-    case 'weeks':
-    case 'week':
-    case 'w':
-      return n * w;
-    case 'days':
-    case 'day':
-    case 'd':
-      return n * d;
-    case 'hours':
-    case 'hour':
-    case 'hrs':
-    case 'hr':
-    case 'h':
-      return n * h;
-    case 'minutes':
-    case 'minute':
-    case 'mins':
-    case 'min':
-    case 'm':
+  /* istanbul ignore next - the regex above guarantees unit starts with one of
+   * m/s/h/d/w/y, so unreachable default branches exist for type safety. */
+  switch (c0) {
+    case 0x6d /* 'm' */: {
+      // m, ms, msec, msecs, milliseconds, millisecond, mo, month, months,
+      // min, mins, minute, minutes
+      if (unit.length === 1) {
+        return n * m;
+      }
+      const c1 = unit.charCodeAt(1) | 0x20;
+      if (c1 === 0x73 /* 's' */) {
+        // ms, msec, msecs
+        return n;
+      }
+      if (c1 === 0x6f /* 'o' */) {
+        // mo, month, months
+        return n * mo;
+      }
+      // c1 === 0x69 ('i'): min, mins, minute, minutes, millisecond(s)
+      const c2 = unit.charCodeAt(2) | 0x20;
+      if (c2 === 0x6c /* 'l' */) {
+        // milliseconds, millisecond
+        return n;
+      }
+      // min, mins, minute, minutes
       return n * m;
-    case 'seconds':
-    case 'second':
-    case 'secs':
-    case 'sec':
-    case 's':
+    }
+    case 0x73 /* 's' */:
+      // s, sec, secs, second, seconds
       return n * s;
-    case 'milliseconds':
-    case 'millisecond':
-    case 'msecs':
-    case 'msec':
-    case 'ms':
-      return n;
+    case 0x68 /* 'h' */:
+      // h, hr, hrs, hour, hours
+      return n * h;
+    case 0x64 /* 'd' */:
+      // d, day, days
+      return n * d;
+    case 0x77 /* 'w' */:
+      // w, week, weeks
+      return n * w;
     default:
-      matchUnit satisfies never;
-      throw new Error(
-        `Unknown unit "${matchUnit}" provided to ms.parse(). value=${JSON.stringify(str)}`,
-      );
+      // c0 === 0x79 ('y'): y, yr, yrs, year, years
+      return n * y;
   }
 }
 
