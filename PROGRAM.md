@@ -1,5 +1,7 @@
 # PROGRAM: Make `ms` Measurably Faster
 
+lead_github_login: alanzabihi
+
 ## Goal
 
 Reduce the execution time of `ms` library operations, measured in milliseconds
