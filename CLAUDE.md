@@ -25,3 +25,8 @@ any module-level constants it needs). All other files are frozen.
 - format_ms must not regress >10% from baseline (~28ms)
 - All gates in PREPARE.md must pass
 - No new dependencies, no API changes, no type changes
+- **Do NOT commit `results.tsv` on your thesis branch.** That file is maintained
+  by the lead on `main` via `polyresearch sync` and listed in the CANNOT-modify
+  set in PROGRAM.md. If you run `polyresearch sync` locally by accident, reset
+  the file before committing: `git checkout main -- results.tsv` (from your
+  worktree, pointing at the latest main).
