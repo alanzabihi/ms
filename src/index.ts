@@ -90,60 +90,53 @@ export function parse(str: string): number {
     unit: string | undefined;
   };
 
-  const n = parseFloat(value);
-
-  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
-
-  /* istanbul ignore next - istanbul doesn't understand, but thankfully the TypeScript the exhaustiveness check in the default case keeps us type safe here */
-  switch (matchUnit) {
-    case 'years':
-    case 'year':
-    case 'yrs':
-    case 'yr':
-    case 'y':
-      return n * y;
-    case 'months':
-    case 'month':
-    case 'mo':
-      return n * mo;
-    case 'weeks':
-    case 'week':
-    case 'w':
-      return n * w;
-    case 'days':
-    case 'day':
-    case 'd':
-      return n * d;
-    case 'hours':
-    case 'hour':
-    case 'hrs':
-    case 'hr':
-    case 'h':
-      return n * h;
-    case 'minutes':
-    case 'minute':
-    case 'mins':
-    case 'min':
-    case 'm':
-      return n * m;
-    case 'seconds':
-    case 'second':
-    case 'secs':
-    case 'sec':
-    case 's':
-      return n * s;
-    case 'milliseconds':
-    case 'millisecond':
-    case 'msecs':
-    case 'msec':
-    case 'ms':
-      return n;
-    default:
-      matchUnit satisfies never;
-      throw new Error(
-        `Unknown unit "${matchUnit}" provided to ms.parse(). value=${JSON.stringify(str)}`,
-      );
+  // Fast integer path: parse via charCode loop; fall back to parseFloat only if
+  // a '.' is encountered or the integer is long enough that double-precision
+  // accumulation could diverge from parseFloat's correctly-rounded result.
+  let n: number;
+  const vLen = value.length;
+  /* istanbul ignore next - long-integer fallback isn't exercised by the test suite */
+  if (vLen > 16) {
+    n = parseFloat(value);
+  } else {
+    let i = 0;
+    let negative = false;
+    if (value.charCodeAt(0) === 45 /* '-' */) {
+      negative = true;
+      i = 1;
+    }
+    let acc = 0;
+    let hasDot = false;
+    for (; i < vLen; i++) {
+      const c = value.charCodeAt(i);
+      if (c === 46 /* '.' */) {
+        hasDot = true;
+        break;
+      }
+      acc = acc * 10 + (c - 48);
+    }
+    n = hasDot ? parseFloat(value) : negative ? -acc : acc;
   }
+
+  // Dispatch on the first (and occasionally second/third) char of the unit
+  // using `| 0x20` for case-insensitivity, avoiding the `.toLowerCase()`
+  // allocation entirely. The regex has already validated the unit is one of
+  // the known variants, so we only need to distinguish between groups.
+  const c0 = unit.charCodeAt(0) | 0x20;
+  if (c0 === 0x79 /* y */) return n * y;
+  if (c0 === 0x77 /* w */) return n * w;
+  if (c0 === 0x64 /* d */) return n * d;
+  if (c0 === 0x68 /* h */) return n * h;
+  if (c0 === 0x73 /* s */) return n * s;
+  // c0 === 'm': minutes, ms (msec/msecs/ms/millisecond/milliseconds), or months
+  if (unit.length === 1) return n * m; // 'm' alone
+  const c1 = unit.charCodeAt(1) | 0x20;
+  if (c1 === 0x73 /* s */) return n; // ms, msec, msecs
+  if (c1 === 0x6f /* o */) return n * mo; // mo, month, months
+  // c1 === 'i': 'min*' (minute) or 'mil*' (milliseconds)
+  const c2 = unit.charCodeAt(2) | 0x20;
+  if (c2 === 0x6c /* l */) return n; // millisecond, milliseconds
+  return n * m; // min, mins, minute, minutes
 }
 
 /**
