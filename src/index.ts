@@ -6,6 +6,46 @@ const w = d * 7;
 const y = d * 365.25;
 const mo = y / 12;
 
+// Precomputed lookup map from lowercased unit string to its multiplier.
+// Empty key ('') handles the bare-number case (default unit = ms).
+const UNITS: Record<string, number> = {
+  '': 1,
+  ms: 1,
+  msec: 1,
+  msecs: 1,
+  millisecond: 1,
+  milliseconds: 1,
+  s: s,
+  sec: s,
+  secs: s,
+  second: s,
+  seconds: s,
+  m: m,
+  min: m,
+  mins: m,
+  minute: m,
+  minutes: m,
+  h: h,
+  hr: h,
+  hrs: h,
+  hour: h,
+  hours: h,
+  d: d,
+  day: d,
+  days: d,
+  w: w,
+  week: w,
+  weeks: w,
+  mo: mo,
+  month: mo,
+  months: mo,
+  y: y,
+  yr: y,
+  yrs: y,
+  year: y,
+  years: y,
+};
+
 type Years = 'years' | 'year' | 'yrs' | 'yr' | 'y';
 type Months = 'months' | 'month' | 'mo';
 type Weeks = 'weeks' | 'week' | 'w';
@@ -74,69 +114,94 @@ export function parse(str: string): number {
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
   }
-  const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
-    );
 
-  if (!match?.groups) {
-    return NaN;
+  const len = str.length;
+  let i = 0;
+
+  // --- Scan sign ---
+  let negative = false;
+  const first = str.charCodeAt(0);
+  if (first === 45 /* '-' */) {
+    negative = true;
+    i = 1;
   }
 
-  // Named capture groups need to be manually typed today.
-  // https://github.com/microsoft/TypeScript/issues/32098
-  const { value, unit = 'ms' } = match.groups as {
-    value: string;
-    unit: string | undefined;
-  };
+  // --- Scan number: int-part, optional '.', fractional-part ---
+  const numStart = i;
+  let acc = 0;
+  let sawIntDigit = false;
+  while (i < len) {
+    const c = str.charCodeAt(i);
+    if (c < 48 || c > 57) break;
+    acc = acc * 10 + (c - 48);
+    sawIntDigit = true;
+    i++;
+  }
 
-  // Fast integer path: parse via charCode loop; fall back to parseFloat only if
-  // a '.' is encountered or the integer is long enough that double-precision
-  // accumulation could diverge from parseFloat's correctly-rounded result.
-  let n: number;
-  const vLen = value.length;
-  /* istanbul ignore next - long-integer fallback isn't exercised by the test suite */
-  if (vLen > 16) {
-    n = parseFloat(value);
-  } else {
-    let i = 0;
-    let negative = false;
-    if (value.charCodeAt(0) === 45 /* '-' */) {
-      negative = true;
-      i = 1;
+  let hasDot = false;
+  let sawFracDigit = false;
+  if (i < len && str.charCodeAt(i) === 46 /* '.' */) {
+    hasDot = true;
+    i++;
+    while (i < len) {
+      const c = str.charCodeAt(i);
+      if (c < 48 || c > 57) break;
+      sawFracDigit = true;
+      i++;
     }
-    let acc = 0;
-    let hasDot = false;
-    for (; i < vLen; i++) {
-      const c = value.charCodeAt(i);
-      if (c === 46 /* '.' */) {
-        hasDot = true;
+  }
+
+  // Regex requires `\d+` at end: if a dot was scanned, a fractional digit is
+  // required; otherwise an integer digit is required.
+  if (hasDot ? !sawFracDigit : !sawIntDigit) return NaN;
+
+  const numEnd = i;
+  const numLen = numEnd - numStart;
+
+  let n: number;
+  /* istanbul ignore next - long-integer fallback isn't exercised by the test suite */
+  if (hasDot || numLen > 16) {
+    n = parseFloat(str.slice(negative ? 0 : numStart, numEnd));
+  } else {
+    n = negative ? -acc : acc;
+  }
+
+  // --- Skip spaces between number and unit ---
+  while (i < len && str.charCodeAt(i) === 32 /* ' ' */) i++;
+
+  // --- Capture unit (all remaining chars). Lowercase via | 0x20 when needed. ---
+  let unit: string;
+  if (i === len) {
+    unit = '';
+  } else {
+    // Fast path: if all chars are already lowercase ASCII letters, slice.
+    let allLower = true;
+    for (let j = i; j < len; j++) {
+      const c = str.charCodeAt(j);
+      if (c < 97 || c > 122) {
+        allLower = false;
         break;
       }
-      acc = acc * 10 + (c - 48);
     }
-    n = hasDot ? parseFloat(value) : negative ? -acc : acc;
+    if (allLower) {
+      unit = str.slice(i, len);
+    } else {
+      // Build lowercase unit; reject non-ASCII-letter characters.
+      let u = '';
+      for (let j = i; j < len; j++) {
+        const c = str.charCodeAt(j);
+        const lc = c | 0x20;
+        if (lc < 97 || lc > 122) return NaN;
+        u += String.fromCharCode(lc);
+      }
+      unit = u;
+    }
   }
 
-  // Dispatch on the first (and occasionally second/third) char of the unit
-  // using `| 0x20` for case-insensitivity, avoiding the `.toLowerCase()`
-  // allocation entirely. The regex has already validated the unit is one of
-  // the known variants, so we only need to distinguish between groups.
-  const c0 = unit.charCodeAt(0) | 0x20;
-  if (c0 === 0x79 /* y */) return n * y;
-  if (c0 === 0x77 /* w */) return n * w;
-  if (c0 === 0x64 /* d */) return n * d;
-  if (c0 === 0x68 /* h */) return n * h;
-  if (c0 === 0x73 /* s */) return n * s;
-  // c0 === 'm': minutes, ms (msec/msecs/ms/millisecond/milliseconds), or months
-  if (unit.length === 1) return n * m; // 'm' alone
-  const c1 = unit.charCodeAt(1) | 0x20;
-  if (c1 === 0x73 /* s */) return n; // ms, msec, msecs
-  if (c1 === 0x6f /* o */) return n * mo; // mo, month, months
-  // c1 === 'i': 'min*' (minute) or 'mil*' (milliseconds)
-  const c2 = unit.charCodeAt(2) | 0x20;
-  if (c2 === 0x6c /* l */) return n; // millisecond, milliseconds
-  return n * m; // min, mins, minute, minutes
+  const mult = UNITS[unit];
+  /* istanbul ignore next - tests don't exercise an all-lowercase non-unit */
+  if (mult === undefined) return NaN;
+  return n * mult;
 }
 
 /**
