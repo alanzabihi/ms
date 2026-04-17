@@ -185,25 +185,25 @@ function fmtShort(ms: number): StringValue {
 function fmtLong(ms: number): StringValue {
   const msAbs = Math.abs(ms);
   if (msAbs >= y) {
-    return plural(ms, msAbs, y, 'year');
+    return `${Math.round(ms / y)} year${msAbs >= y * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= mo) {
-    return plural(ms, msAbs, mo, 'month');
+    return `${Math.round(ms / mo)} month${msAbs >= mo * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= w) {
-    return plural(ms, msAbs, w, 'week');
+    return `${Math.round(ms / w)} week${msAbs >= w * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= d) {
-    return plural(ms, msAbs, d, 'day');
+    return `${Math.round(ms / d)} day${msAbs >= d * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= h) {
-    return plural(ms, msAbs, h, 'hour');
+    return `${Math.round(ms / h)} hour${msAbs >= h * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= m) {
-    return plural(ms, msAbs, m, 'minute');
+    return `${Math.round(ms / m)} minute${msAbs >= m * 1.5 ? 's' : ''}` as StringValue;
   }
   if (msAbs >= s) {
-    return plural(ms, msAbs, s, 'second');
+    return `${Math.round(ms / s)} second${msAbs >= s * 1.5 ? 's' : ''}` as StringValue;
   }
   return `${ms} ms`;
 }
@@ -221,17 +221,4 @@ export function format(ms: number, options?: Options): string {
   }
 
   return options?.long ? fmtLong(ms) : fmtShort(ms);
-}
-
-/**
- * Pluralization helper.
- */
-function plural(
-  ms: number,
-  msAbs: number,
-  n: number,
-  name: string,
-): StringValue {
-  const isPlural = msAbs >= n * 1.5;
-  return `${Math.round(ms / n)} ${name}${isPlural ? 's' : ''}` as StringValue;
 }
