@@ -1,0 +1,4 @@
+node_id = "alanzabihi/Samadins-Mac-mini.local-1908"
+capacity = 75
+api_budget = 5000
+request_delay_ms = 100
