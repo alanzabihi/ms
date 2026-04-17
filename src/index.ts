@@ -41,10 +41,16 @@ interface Options {
 // Module-level LRU-ish cache for parse() results. Many callers repeatedly
 // parse the same small set of inputs (config values, route patterns, etc.),
 // so returning a cached number skips the scanner entirely. The cap keeps
-// memory bounded; on overflow we evict the oldest insertion (Map preserves
-// insertion order). NaN is a legal cached value, so we gate with `has()`.
+// memory bounded; on overflow we evict the oldest insertion.
+//
+// We use a null-prototype plain object for the hot lookup: V8 specializes
+// string-keyed property access on dictionary-mode objects to be faster than
+// a Map.get() for the common hit case. A parallel keys array tracks insertion
+// order so we can evict the oldest entry on overflow. NaN is a legal cached
+// value, so we gate with `in` rather than undefined comparison.
 const PARSE_CACHE_LIMIT = 128;
-const parseCache = new Map<string, number>();
+const parseCache: { [key: string]: number } = Object.create(null);
+const parseCacheKeys: string[] = [];
 
 /**
  * Parse or format the given value.
@@ -84,13 +90,12 @@ export function parse(str: string): number {
   }
 
   // Check the result cache before doing any parsing work. The cached value
-  // may be NaN, so we must use `has()` rather than comparing against
-  // undefined — `NaN !== undefined` would give a false positive for a
-  // cached invalid input. A single Map lookup is cheaper than even the
-  // fastest scanner path.
-  const cached = parseCache.get(str);
-  if (cached !== undefined || parseCache.has(str)) {
-    return cached as number;
+  // may be NaN, so when the fast lookup returns undefined we must check
+  // with `in` to distinguish "missing key" from "key stored NaN". A plain
+  // null-prototype object property access is faster than Map.get() on V8.
+  const cached = parseCache[str];
+  if (cached !== undefined || str in parseCache) {
+    return cached;
   }
 
   // Fast path: hand-rolled scanner for the common shape
@@ -287,13 +292,14 @@ export function parse(str: string): number {
     }
   }
   // Store the computed result, evicting the oldest entry if over the cap.
-  // Map iteration order is insertion order, so the first key is the oldest.
+  // `parseCacheKeys` tracks insertion order; the 0th entry is the oldest.
   /* istanbul ignore if - eviction requires >PARSE_CACHE_LIMIT unique inputs, which no single test exercises */
-  if (parseCache.size >= PARSE_CACHE_LIMIT) {
-    const oldest = parseCache.keys().next().value;
-    if (oldest !== undefined) parseCache.delete(oldest);
+  if (parseCacheKeys.length >= PARSE_CACHE_LIMIT) {
+    const oldest = parseCacheKeys.shift();
+    if (oldest !== undefined) delete parseCache[oldest];
   }
-  parseCache.set(str, result);
+  parseCache[str] = result;
+  parseCacheKeys.push(str);
   return result;
 }
 
