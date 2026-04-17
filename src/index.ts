@@ -74,9 +74,14 @@ export function parse(str: string): number {
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
   }
+  // Hoist case normalization out of the regex engine: lowercase once, then
+  // match without the `/i` flag. The regex restricts unit chars to ASCII
+  // letters, so `toLowerCase()` is equivalent to the engine's case folding
+  // for any input that matches.
+  const lower = str.toLowerCase();
   const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
+    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/.exec(
+      lower,
     );
 
   if (!match?.groups) {
@@ -118,11 +123,12 @@ export function parse(str: string): number {
     n = hasDot ? parseFloat(value) : negative ? -acc : acc;
   }
 
-  // Dispatch on the first (and occasionally second/third) char of the unit
-  // using `| 0x20` for case-insensitivity, avoiding the `.toLowerCase()`
-  // allocation entirely. The regex has already validated the unit is one of
-  // the known variants, so we only need to distinguish between groups.
-  const c0 = unit.charCodeAt(0) | 0x20;
+  // Dispatch on the first (and occasionally second/third) char of the unit.
+  // Because `lower` is already lowercased before matching, `unit` is
+  // guaranteed lowercase ASCII — no `| 0x20` masking needed. The regex has
+  // already validated the unit is one of the known variants, so we only need
+  // to distinguish between groups.
+  const c0 = unit.charCodeAt(0);
   if (c0 === 0x79 /* y */) return n * y;
   if (c0 === 0x77 /* w */) return n * w;
   if (c0 === 0x64 /* d */) return n * d;
@@ -130,11 +136,11 @@ export function parse(str: string): number {
   if (c0 === 0x73 /* s */) return n * s;
   // c0 === 'm': minutes, ms (msec/msecs/ms/millisecond/milliseconds), or months
   if (unit.length === 1) return n * m; // 'm' alone
-  const c1 = unit.charCodeAt(1) | 0x20;
+  const c1 = unit.charCodeAt(1);
   if (c1 === 0x73 /* s */) return n; // ms, msec, msecs
   if (c1 === 0x6f /* o */) return n * mo; // mo, month, months
   // c1 === 'i': 'min*' (minute) or 'mil*' (milliseconds)
-  const c2 = unit.charCodeAt(2) | 0x20;
+  const c2 = unit.charCodeAt(2);
   if (c2 === 0x6c /* l */) return n; // millisecond, milliseconds
   return n * m; // min, mins, minute, minutes
 }
