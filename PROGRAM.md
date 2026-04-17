@@ -1,8 +1,9 @@
 # PROGRAM: Make `ms` Measurably Faster
 
-- **Lead GitHub login:** alanzabihi
-- **Fork:** alanzabihi/ms
-- **Upstream:** vercel/ms (v4.0.0, ESM-only, Node >= 20)
+lead_github_login: alanzabihi
+
+- Fork: alanzabihi/ms
+- Upstream: vercel/ms (v4.0.0, ESM-only, Node >= 20)
 
 ## Goal
 
