@@ -1,1 +1,2 @@
-issue	pr	status	parse_ms	format_ms	parse_fp	format_fp	notes
+thesis	attempt	metric	baseline	status	summary
+#10	thesis/10-fast-integer-parsing-with-parsefloat-fallback-in-parse	128.9900	162.9600	accepted	Fast int parse (charCode accumulator, gate on len<=16) + charCode unit dispatch tree. parse_ms 162.96 -> 128.99 (-20.8%). Fingerprints match, gates pass.
