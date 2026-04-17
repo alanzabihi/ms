@@ -1,2 +1,5 @@
 thesis	attempt	metric	baseline	status	summary
 #10	thesis/10-fast-integer-parsing-with-parsefloat-fallback-in-parse	128.9900	162.9600	accepted	Fast int parse (charCode accumulator, gate on len<=16) + charCode unit dispatch tree. parse_ms 162.96 -> 128.99 (-20.8%). Fingerprints match, gates pass.
+#9	thesis/9-hand-rolled-character-parser-replacing-regex-in-parse	60.1200	155.3400	discarded	Hand-rolled charCode number scanner (sign, integer accumulator, parseFloat fallback for decimals), kept existing unit switch. parse_ms 155.34 -> 60.12 (-61.3%). format_ms 29.19 (within 10% guard on quieter machine). Fingerprints match, all gates pass.
+#11	thesis/11-charcode-based-unit-dispatch-replacing-switch-in-parse	126.6800	155.3400	discarded	CharCode dispatch (c | 0x20) replacing 30-case switch and toLowerCase alloc. parse_ms 155.34 -> 126.68 (-18.5%). format_ms 27.51 stable. Fingerprints match.
+#13	thesis/13-combined-hand-rolled-parser-with-inline-unit-resolution	37.5400	155.3400	discarded	Full hand-rolled char parser + inline charCode-dispatch unit resolution. parse_ms 155.34 -> 37.54 (-75.8%). Fingerprints match, all gates pass.
