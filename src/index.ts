@@ -74,25 +74,22 @@ export function parse(str: string): number {
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
   }
+  const lower = str.toLowerCase();
   const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
+    /^(-?\d*\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/.exec(
+      lower,
     );
 
-  if (!match?.groups) {
+  if (!match) {
     return NaN;
   }
 
-  // Named capture groups need to be manually typed today.
-  // https://github.com/microsoft/TypeScript/issues/32098
-  const { value, unit = 'ms' } = match.groups as {
-    value: string;
-    unit: string | undefined;
-  };
+  const value = match[1] as string;
+  const unit = match[2];
 
   const n = parseFloat(value);
 
-  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
+  const matchUnit = (unit ?? 'ms') as Lowercase<Unit>;
 
   /* istanbul ignore next - istanbul doesn't understand, but thankfully the TypeScript the exhaustiveness check in the default case keeps us type safe here */
   switch (matchUnit) {
