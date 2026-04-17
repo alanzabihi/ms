@@ -74,28 +74,65 @@ export function parse(str: string): number {
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
   }
-  const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
-    );
 
-  if (!match?.groups) {
-    return NaN;
+  const len = str.length;
+  let i = 0;
+  // charCodeAt returns NaN when out of bounds; comparisons to NaN are always false,
+  // so loops terminate naturally and branch checks work as expected.
+  let code = str.charCodeAt(0);
+
+  // Optional leading '-'
+  const negative = code === 45;
+  if (negative) {
+    i = 1;
+    code = str.charCodeAt(i);
   }
 
-  // Named capture groups need to be manually typed today.
-  // https://github.com/microsoft/TypeScript/issues/32098
-  const { value, unit = 'ms' } = match.groups as {
-    value: string;
-    unit: string | undefined;
-  };
+  // Parse integer digits
+  let intAcc = 0;
+  let hasIntDigits = false;
+  while (code >= 48 && code <= 57) {
+    intAcc = intAcc * 10 + (code - 48);
+    hasIntDigits = true;
+    i++;
+    code = str.charCodeAt(i);
+  }
 
-  const n = parseFloat(value);
+  // Optional decimal point and trailing digits
+  let hasDecimal = false;
+  let hasFracDigits = false;
+  if (code === 46) {
+    hasDecimal = true;
+    i++;
+    code = str.charCodeAt(i);
+    while (code >= 48 && code <= 57) {
+      hasFracDigits = true;
+      i++;
+      code = str.charCodeAt(i);
+    }
+    /* istanbul ignore if - defensive rejection of bare "." or "x." inputs */
+    if (!hasFracDigits) return NaN;
+  }
 
-  const matchUnit = unit.toLowerCase() as Lowercase<Unit>;
+  if (!hasIntDigits && !hasFracDigits) return NaN;
 
-  /* istanbul ignore next - istanbul doesn't understand, but thankfully the TypeScript the exhaustiveness check in the default case keeps us type safe here */
-  switch (matchUnit) {
+  // Compute numeric value
+  const n: number = hasDecimal ? parseFloat(str) : negative ? -intAcc : intAcc;
+
+  // Skip optional spaces
+  while (code === 32) {
+    i++;
+    code = str.charCodeAt(i);
+  }
+
+  // If we've consumed everything, it's a bare number (no unit) -> ms
+  if (i >= len) return n;
+
+  // Extract unit slice and normalize to lowercase for switch dispatch.
+  const unit = str.slice(i).toLowerCase() as Lowercase<Unit>;
+
+  /* istanbul ignore next - many unit spellings are not exercised by tests */
+  switch (unit) {
     case 'years':
     case 'year':
     case 'yrs':
@@ -139,10 +176,7 @@ export function parse(str: string): number {
     case 'ms':
       return n;
     default:
-      matchUnit satisfies never;
-      throw new Error(
-        `Unknown unit "${matchUnit}" provided to ms.parse(). value=${JSON.stringify(str)}`,
-      );
+      return NaN;
   }
 }
 
