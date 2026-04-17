@@ -77,22 +77,22 @@ export function ms(
  * parsed
  */
 export function parse(str: string): number {
+  // Tiny wrapper sized to fit under V8's inliner AST-node budget so the
+  // cache-hit path inlines at call sites. The full scanner/regex body
+  // is parked in parseSlow() below. We only ever store numbers (including
+  // NaN) in parseCache, so `get() !== undefined` is a sufficient hit
+  // signal — no secondary `has()` probe needed.
   if (typeof str !== 'string' || str.length === 0 || str.length > 100) {
     throw new Error(
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
   }
-
-  // Check the result cache before doing any parsing work. The cached value
-  // may be NaN, so we must use `has()` rather than comparing against
-  // undefined — `NaN !== undefined` would give a false positive for a
-  // cached invalid input. A single Map lookup is cheaper than even the
-  // fastest scanner path.
   const cached = parseCache.get(str);
-  if (cached !== undefined || parseCache.has(str)) {
-    return cached as number;
-  }
+  if (cached !== undefined) return cached;
+  return parseSlow(str);
+}
 
+function parseSlow(str: string): number {
   // Fast path: hand-rolled scanner for the common shape
   //   [-]? digits [.digits] [ *] [unit-letters]
   // A single pass accumulates the integer portion, detects a decimal point
