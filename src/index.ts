@@ -38,6 +38,14 @@ interface Options {
   long?: boolean;
 }
 
+// Module-level LRU-ish cache for parse() results. Many callers repeatedly
+// parse the same small set of inputs (config values, route patterns, etc.),
+// so returning a cached number skips the scanner entirely. The cap keeps
+// memory bounded; on overflow we evict the oldest insertion (Map preserves
+// insertion order). NaN is a legal cached value, so we gate with `has()`.
+const PARSE_CACHE_LIMIT = 128;
+const parseCache = new Map<string, number>();
+
 /**
  * Parse or format the given value.
  *
@@ -73,6 +81,16 @@ export function parse(str: string): number {
     throw new Error(
       `Value provided to ms.parse() must be a string with length between 1 and 99. value=${JSON.stringify(str)}`,
     );
+  }
+
+  // Check the result cache before doing any parsing work. The cached value
+  // may be NaN, so we must use `has()` rather than comparing against
+  // undefined — `NaN !== undefined` would give a false positive for a
+  // cached invalid input. A single Map lookup is cheaper than even the
+  // fastest scanner path.
+  const cached = parseCache.get(str);
+  if (cached !== undefined || parseCache.has(str)) {
+    return cached as number;
   }
 
   // Fast path: hand-rolled scanner for the common shape
@@ -225,42 +243,58 @@ export function parse(str: string): number {
     fastResult = n * mult;
     break;
   }
+  let result: number;
   if (!needsRegex) {
-    return fastResult;
-  }
+    result = fastResult;
+  } else {
+    // Fallback: the regex is the authoritative validator. Run it; if it
+    // doesn't match, the input is invalid and the result is NaN. If it
+    // does match, fall through to the same dispatch the fast path would
+    // have used — but in practice the fast path already accepts every
+    // regex-matchable input, so matching here is unreachable in the test
+    // suite.
+    const match =
+      /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
+        str,
+      );
 
-  // Fallback: the regex is the authoritative validator. Run it; if it
-  // doesn't match, the input is invalid and we return NaN. If it does
-  // match, fall through to the same dispatch the fast path would have
-  // used — but in practice the fast path already accepts every regex-
-  // matchable input, so matching here is unreachable in the test suite.
-  const match =
-    /^(?<value>-?\d*\.?\d+) *(?<unit>milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mo|years?|yrs?|y)?$/i.exec(
-      str,
-    );
-
-  /* istanbul ignore if - fast path already accepts every regex-matchable input; only the NaN branch is exercised */
-  if (match !== null) {
-    const { value, unit = 'ms' } = match.groups as {
-      value: string;
-      unit: string | undefined;
-    };
-    const n = parseFloat(value);
-    const c0 = unit.charCodeAt(0) | 0x20;
-    if (c0 === 0x79) return n * y;
-    if (c0 === 0x77) return n * w;
-    if (c0 === 0x64) return n * d;
-    if (c0 === 0x68) return n * h;
-    if (c0 === 0x73) return n * s;
-    if (unit.length === 1) return n * m;
-    const c1 = unit.charCodeAt(1) | 0x20;
-    if (c1 === 0x73) return n;
-    if (c1 === 0x6f) return n * mo;
-    const c2 = unit.charCodeAt(2) | 0x20;
-    if (c2 === 0x6c) return n;
-    return n * m;
+    /* istanbul ignore if - fast path already accepts every regex-matchable input; only the NaN branch is exercised */
+    if (match !== null) {
+      const { value, unit = 'ms' } = match.groups as {
+        value: string;
+        unit: string | undefined;
+      };
+      const n = parseFloat(value);
+      const c0 = unit.charCodeAt(0) | 0x20;
+      if (c0 === 0x79) result = n * y;
+      else if (c0 === 0x77) result = n * w;
+      else if (c0 === 0x64) result = n * d;
+      else if (c0 === 0x68) result = n * h;
+      else if (c0 === 0x73) result = n * s;
+      else if (unit.length === 1) result = n * m;
+      else {
+        const c1 = unit.charCodeAt(1) | 0x20;
+        if (c1 === 0x73) result = n;
+        else if (c1 === 0x6f) result = n * mo;
+        else {
+          const c2 = unit.charCodeAt(2) | 0x20;
+          if (c2 === 0x6c) result = n;
+          else result = n * m;
+        }
+      }
+    } else {
+      result = NaN;
+    }
   }
-  return NaN;
+  // Store the computed result, evicting the oldest entry if over the cap.
+  // Map iteration order is insertion order, so the first key is the oldest.
+  /* istanbul ignore if - eviction requires >PARSE_CACHE_LIMIT unique inputs, which no single test exercises */
+  if (parseCache.size >= PARSE_CACHE_LIMIT) {
+    const oldest = parseCache.keys().next().value;
+    if (oldest !== undefined) parseCache.delete(oldest);
+  }
+  parseCache.set(str, result);
+  return result;
 }
 
 /**
